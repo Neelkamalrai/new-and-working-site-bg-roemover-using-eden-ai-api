@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, ChangeEvent, useEffect } from 'react';
@@ -70,9 +71,8 @@ export default function HomePage() {
     await new Promise(resolve => setTimeout(resolve, 3000));
 
     // Simulate receiving processed image
-    // In a real app, this would be the URL from Claid AI or a data URL of the processed image
-    const randomCacheBuster = Math.random().toString(36).substring(7);
-    setProcessedImagePreview(`https://placehold.co/600x400/000000/FFFFFF/png?text=Processed+Image&random=${randomCacheBuster}`);
+    // Use a simple placeholder URL as per guidelines
+    setProcessedImagePreview(`https://placehold.co/600x400.png`);
     
     setIsLoading(false);
     toast({
@@ -95,7 +95,8 @@ export default function HomePage() {
     // Simulate download
     const link = document.createElement('a');
     link.href = processedImagePreview;
-    // Add a query parameter to suggest a filename, as placehold.co doesn't support content-disposition
+    // Add a query parameter to suggest a filename, as placehold.co doesn't support content-disposition for default .png
+    // However, for simplicity and if the placeholder image itself doesn't need to be uniquely named for download:
     link.download = `ClaidCut_${originalImageFile?.name.split('.')[0] || 'image'}_bg_removed.png`;
     document.body.appendChild(link);
     link.click();
