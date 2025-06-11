@@ -12,6 +12,7 @@ import Header from '@/components/layout/Header';
 import Footer from '@/components/layout/Footer';
 import { UploadCloud, DownloadCloud, Sparkles, Image as ImageIcon, Loader2, Info } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { removeBackground } from '@/ai/flows/remove-background-flow';
 
 
 export default function HomePage() {
@@ -22,10 +23,9 @@ export default function HomePage() {
   const { toast } = useToast();
 
   useEffect(() => {
-    // Clean up URLs when component unmounts or previews change
     return () => {
       if (originalImagePreview) URL.revokeObjectURL(originalImagePreview);
-      // No need to revoke processedImagePreview if it's a static placeholder URL
+      // Processed image preview will be a URL from Eden AI, no need to revoke
     };
   }, [originalImagePreview]);
 
@@ -43,7 +43,7 @@ export default function HomePage() {
       setOriginalImageFile(file);
       const previewUrl = URL.createObjectURL(file);
       setOriginalImagePreview(previewUrl);
-      setProcessedImagePreview(null); // Reset processed image on new upload
+      setProcessedImagePreview(null); 
       toast({
         title: "Image Selected",
         description: `${file.name} is ready for background removal.`,
@@ -64,22 +64,52 @@ export default function HomePage() {
     setIsLoading(true);
     toast({
       title: "Processing Image...",
-      description: "AI is removing the background. This may take a moment.",
+      description: "Eden AI is removing the background. This may take a moment.",
     });
 
-    // Simulate API call to Claid AI
-    await new Promise(resolve => setTimeout(resolve, 3000));
-
-    // Simulate receiving processed image
-    // Use a simple placeholder URL as per guidelines
-    setProcessedImagePreview(`https://placehold.co/600x400.png`);
-    
-    setIsLoading(false);
-    toast({
-      title: "Background Removed!",
-      description: "Your image has been processed successfully.",
-      variant: "default",
-    });
+    try {
+      const reader = new FileReader();
+      reader.readAsDataURL(originalImageFile);
+      reader.onloadend = async () => {
+        const imageDataUri = reader.result as string;
+        try {
+          const result = await removeBackground({ imageDataUri });
+          
+          setProcessedImagePreview(result.processedImageUri);
+          setIsLoading(false);
+          toast({
+            title: "Background Removed!",
+            description: "Your image has been processed successfully by Eden AI.",
+            variant: "default",
+          });
+        } catch (error) {
+          console.error("Error calling removeBackground flow:", error);
+          setIsLoading(false);
+          toast({
+            title: "Processing Failed",
+            description: error instanceof Error ? error.message : "Could not remove background using Eden AI.",
+            variant: "destructive",
+          });
+        }
+      };
+      reader.onerror = (error) => {
+        console.error("Error reading file:", error);
+        setIsLoading(false);
+        toast({
+          title: "File Read Error",
+          description: "Could not read the selected image file.",
+          variant: "destructive",
+        });
+      };
+    } catch (error) {
+      console.error("Error preparing image for background removal:", error);
+      setIsLoading(false);
+      toast({
+        title: "Error",
+        description: "An unexpected error occurred before processing.",
+        variant: "destructive",
+      });
+    }
   };
 
   const handleDownload = () => {
@@ -92,19 +122,20 @@ export default function HomePage() {
       return;
     }
 
-    // Simulate download
     const link = document.createElement('a');
     link.href = processedImagePreview;
-    // Add a query parameter to suggest a filename, as placehold.co doesn't support content-disposition for default .png
-    // However, for simplicity and if the placeholder image itself doesn't need to be uniquely named for download:
     link.download = `ClaidCut_${originalImageFile?.name.split('.')[0] || 'image'}_bg_removed.png`;
+    // For cross-origin images (like those from Eden AI), "download" attribute might not work as expected
+    // without proper CORS headers on the server providing the image.
+    // Opening in a new tab is a common fallback.
+    link.target = '_blank'; 
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
 
     toast({
-      title: "Download Started",
-      description: "Your image is being downloaded.",
+      title: "Download Initiated",
+      description: "Your image should be opening in a new tab for download.",
     });
   };
 
@@ -117,17 +148,16 @@ export default function HomePage() {
             AI Background Remover
           </h2>
           <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
-            Upload your image and let our Claid AI powered tool remove the background in seconds.
+            Upload your image and let our AI powered tool remove the background in seconds.
             Simple, fast, and effective.
           </p>
         </div>
 
         <Alert className="mb-8 bg-card border-primary">
           <Info className="h-5 w-5 text-primary" />
-          <AlertTitle className="font-semibold text-primary">Powered by Claid AI (Simulated)</AlertTitle>
+          <AlertTitle className="font-semibold text-primary">Powered by Eden AI</AlertTitle>
           <AlertDescription>
-            This demo simulates background removal using the Claid AI model.
-            In a real application, your image would be processed by Claid AI.
+            Your image will be processed using the Eden AI API for background removal.
           </AlertDescription>
         </Alert>
 
@@ -163,7 +193,7 @@ export default function HomePage() {
               ) : (
                 <Sparkles className="mr-2 h-6 w-6" />
               )}
-              {isLoading ? 'Processing...' : 'Remove Background'}
+              {isLoading ? 'Processing...' : 'Remove Background with Eden AI'}
             </Button>
           </CardContent>
         </Card>
@@ -204,7 +234,7 @@ export default function HomePage() {
                   <div className="aspect-video relative rounded-lg overflow-hidden border border-border">
                     <Image
                       src={processedImagePreview}
-                      alt="Processed image preview"
+                      alt="Processed image preview from Eden AI"
                       layout="fill"
                       objectFit="contain"
                       data-ai-hint="image no background"
